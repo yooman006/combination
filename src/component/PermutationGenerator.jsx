@@ -114,19 +114,23 @@ export default function PermutationGenerator() {
 
   return (
     <div className="min-h-screen bg-black py-4 px-3 sm:py-8 sm:px-4 overflow-hidden relative">
-      {/* Animated Matrix Background */}
-      <div className="absolute inset-0 opacity-5">
-        {[...Array(20)].map((_, i) => (
+      {/* Animated Binary Matrix Background */}
+      <div className="absolute inset-0 opacity-10 overflow-hidden pointer-events-none">
+        {[...Array(50)].map((_, i) => (
           <div
             key={i}
-            className="absolute text-green-500 font-mono text-xs animate-matrix"
+            className="absolute text-green-500 font-mono text-xs sm:text-sm animate-matrix flex flex-col gap-0.5"
             style={{
-              left: `${Math.random() * 100}%`,
-              animationDelay: `${Math.random() * 5}s`,
-              animationDuration: `${5 + Math.random() * 10}s`
+              left: `${(i * 2)}%`,
+              animationDelay: `${Math.random() * 3}s`,
+              animationDuration: `${6 + Math.random() * 4}s`
             }}
           >
-            {Math.random().toString(36).substring(2, 15)}
+            {[...Array(25)].map((_, j) => (
+              <div key={j} className={j === 0 ? 'text-green-300 font-bold' : ''}>
+                {Math.random() > 0.5 ? '1' : '0'}
+              </div>
+            ))}
           </div>
         ))}
       </div>
@@ -164,7 +168,7 @@ export default function PermutationGenerator() {
               <div className="w-2 h-2 sm:w-3 sm:h-3 rounded-full bg-yellow-500"></div>
               <div className="w-2 h-2 sm:w-3 sm:h-3 rounded-full bg-green-500 animate-pulse"></div>
               <span className="ml-2 sm:ml-4 text-green-400 font-mono text-xs sm:text-sm hidden sm:inline">
-                yoo@force:~$
+                yoo@crack:~$
               </span>
             </div>
             {crackingStatus && (
@@ -374,17 +378,17 @@ export default function PermutationGenerator() {
         }
         @keyframes matrix {
           0% {
-            transform: translateY(-100%);
+            transform: translateY(-20%);
             opacity: 0;
           }
-          10% {
+          5% {
             opacity: 1;
           }
-          90% {
-            opacity: 1;
+          95% {
+            opacity: 0.8;
           }
           100% {
-            transform: translateY(100vh);
+            transform: translateY(120vh);
             opacity: 0;
           }
         }
