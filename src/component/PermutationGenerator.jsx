@@ -10,6 +10,10 @@ export default function PermutationGenerator() {
   const [terminalText, setTerminalText] = useState('');
   const [progress, setProgress] = useState(0);
   const [crackingStatus, setCrackingStatus] = useState('');
+  const [uniqueLetters, setUniqueLetters] = useState([]);
+  const [showUnique, setShowUnique] = useState(false);
+  const [mixingLetters, setMixingLetters] = useState([]);
+  const [revealedUnique, setRevealedUnique] = useState([]);
 
   const terminalMessages = [
     '> Connecting to target server...',
@@ -68,6 +72,47 @@ export default function PermutationGenerator() {
     return result;
   };
 
+  // Helper functions for meaningful words
+  const hasVowel = (word) => {
+    return /[aeiou]/i.test(word);
+  };
+
+  const looksLikeName = (word) => {
+    // Check for common name patterns
+    const namePatterns = [
+      /^[bcdfghjklmnpqrstvwxyz][aeiou][bcdfghjklmnpqrstvwxyz]/i, // CVC pattern
+      /^[bcdfghjklmnpqrstvwxyz][aeiou]{2}/i, // CVV pattern
+      /^[aeiou][bcdfghjklmnpqrstvwxyz]/i, // VC pattern
+      /^[bcdfghjklmnpqrstvwxyz][aeiou][bcdfghjklmnpqrstvwxyz][aeiou]/i, // CVCV pattern
+    ];
+    
+    return namePatterns.some(pattern => pattern.test(word));
+  };
+
+  const calculateWordScore = (word) => {
+    let score = 0;
+    
+    // Higher score for longer words (but not too long)
+    if (word.length >= 3 && word.length <= 6) score += word.length * 2;
+    
+    // Higher score for having vowels
+    const vowelCount = (word.match(/[aeiou]/gi) || []).length;
+    score += vowelCount * 3;
+    
+    // Higher score for common consonants at start
+    if (/^[bcdghjklmnpqrstvwxyz]/i.test(word)) score += 2;
+    
+    // Higher score for alternating consonant-vowel patterns
+    const cvPattern = word.replace(/[bcdfghjklmnpqrstvwxyz]/gi, 'C').replace(/[aeiou]/gi, 'V');
+    if (cvPattern.includes('CVC') || cvPattern.includes('VCV')) score += 3;
+    
+    // Penalty for repeated characters
+    const uniqueChars = new Set(word.toLowerCase()).size;
+    score += uniqueChars;
+    
+    return score;
+  };
+
   const handleGenerate = async () => {
     if (input.trim()) {
       setIsGenerating(true);
@@ -75,12 +120,14 @@ export default function PermutationGenerator() {
       setTerminalText('');
       setProgress(0);
       setCrackingStatus('CRACKING');
+      setShowUnique(false);
+      setUniqueLetters([]);
+      setRevealedUnique([]);
       
       setTimeout(() => {
         const result = generatePermutations(input.trim());
         setPermutations(result);
         
-        // Animate results appearing faster for mobile
         result.forEach((perm, index) => {
           setTimeout(() => {
             setDisplayedPerms(prev => [...prev, perm]);
@@ -96,6 +143,9 @@ export default function PermutationGenerator() {
     } else {
       setPermutations([]);
       setDisplayedPerms([]);
+      setShowUnique(false);
+      setUniqueLetters([]);
+      setRevealedUnique([]);
     }
   };
 
@@ -110,6 +160,48 @@ export default function PermutationGenerator() {
     navigator.clipboard.writeText(allText);
     setCopiedIndex('all');
     setTimeout(() => setCopiedIndex(null), 2000);
+  };
+
+  const handleShowUnique = () => {
+    if (!permutations.length) return;
+    
+    // Filter permutations to find ones that look like meaningful words/names
+    const meaningfulWords = permutations.filter(perm => {
+      const word = perm.toLowerCase();
+      
+      // Check if it looks like a name or meaningful word
+      return (
+        word.length >= 3 && // At least 3 characters
+        hasVowel(word) && // Contains vowels
+        looksLikeName(word) // Has name-like pattern
+      );
+    });
+    
+    // Calculate scores and get top 20
+    const scoredWords = meaningfulWords.map(word => ({
+      word,
+      score: calculateWordScore(word)
+    }));
+    
+    // Sort by score (highest first) and take top 20
+    const topWords = scoredWords
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 20)
+      .map(item => item.word);
+    
+    // Get unique words from top 20
+    const uniqueWords = [...new Set(topWords)].slice(0, 20);
+    
+    setUniqueLetters(uniqueWords);
+    setMixingLetters(permutations);
+    setShowUnique(true);
+    setRevealedUnique([]);
+    
+    uniqueWords.forEach((word, index) => {
+      setTimeout(() => {
+        setRevealedUnique(prev => [...prev, word]);
+      }, 1500 + (index * 200));
+    });
   };
 
   return (
@@ -223,6 +315,16 @@ export default function PermutationGenerator() {
                     </>
                   )}
                 </button>
+                
+                {/* Unique Words Button */}
+                <button
+                  onClick={handleShowUnique}
+                  disabled={!permutations.length || isGenerating}
+                  className="w-full px-4 py-2 sm:px-6 sm:py-3 bg-emerald-600 text-white rounded font-mono font-bold hover:bg-emerald-500 transition-all shadow-lg shadow-emerald-600/50 hover:shadow-emerald-500/50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm sm:text-base border-2 border-emerald-400"
+                >
+                  <Shield className="w-4 h-4" />
+                  EXTRACT TOP 20 MEANINGFUL WORDS
+                </button>
               </div>
             </div>
 
@@ -252,6 +354,101 @@ export default function PermutationGenerator() {
             )}
           </div>
         </div>
+
+        {/* Unique Words Animation Section */}
+        {showUnique && (
+          <div className="bg-gray-900 rounded-lg border-2 border-emerald-500 shadow-2xl shadow-emerald-500/50 overflow-hidden mb-4 sm:mb-6">
+            <div className="bg-gray-800 border-b border-emerald-500 px-3 sm:px-4 py-3">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
+                <span className="text-emerald-400 font-mono font-bold text-xs sm:text-sm">
+                  TOP 20 MEANINGFUL WORDS EXTRACTION
+                </span>
+              </div>
+            </div>
+            
+            <div className="p-6 sm:p-8 bg-black">
+              {/* Mixing Animation Container */}
+              <div className="relative h-48 sm:h-64 mb-8 flex items-center justify-center overflow-hidden">
+                {/* Swirling/Mixing Words */}
+                {revealedUnique.length < uniqueLetters.length && mixingLetters.map((word, index) => (
+                  <div
+                    key={`mix-${index}`}
+                    className="absolute text-xl sm:text-2xl font-bold font-mono text-emerald-400 opacity-80 animate-swirl"
+                    style={{
+                      animationDelay: `${index * 0.1}s`,
+                      animationDuration: `${2 + (index % 3) * 0.5}s`,
+                    }}
+                  >
+                    {word}
+                  </div>
+                ))}
+                
+                {/* Central Vortex Effect */}
+                {revealedUnique.length < uniqueLetters.length && (
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="w-32 h-32 sm:w-48 sm:h-48 border-4 border-emerald-500 rounded-full animate-spin-slow opacity-30"></div>
+                    <div className="absolute w-24 h-24 sm:w-36 sm:h-36 border-4 border-emerald-400 rounded-full animate-spin-reverse opacity-40"></div>
+                    <div className="absolute w-16 h-16 sm:w-24 sm:h-24 border-4 border-emerald-300 rounded-full animate-spin opacity-50"></div>
+                  </div>
+                )}
+                
+                {/* Revealed Unique Words */}
+                <div className="relative z-10 flex flex-wrap gap-3 sm:gap-6 justify-center">
+                  {revealedUnique.map((word, index) => (
+                    <div
+                      key={`unique-${index}`}
+                      className="animate-pop"
+                      style={{ animationDelay: `${index * 0.1}s` }}
+                    >
+                      <div className="relative">
+                        <div className="text-2xl sm:text-4xl font-bold font-mono text-emerald-400 drop-shadow-[0_0_20px_rgba(16,185,129,0.8)] animate-pulse-glow px-4 py-2 bg-black bg-opacity-50 rounded-lg">
+                          {word}
+                        </div>
+                        <div className="absolute -inset-2 bg-emerald-500 opacity-20 blur-xl rounded-lg"></div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              
+              {/* Unique Words Display */}
+              {revealedUnique.length === uniqueLetters.length && (
+                <div className="animate-fadeIn">
+                  <div className="bg-emerald-900 border-2 border-emerald-400 rounded p-4 sm:p-6 text-center mb-4">
+                    <div className="flex items-center justify-center gap-2 mb-2">
+                      <Shield className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-400" />
+                      <span className="text-emerald-400 font-mono font-bold text-sm sm:text-lg">
+                        TOP 20 MEANINGFUL WORDS EXTRACTED
+                      </span>
+                    </div>
+                    <p className="text-emerald-500 font-mono text-xs">
+                      Showing top {uniqueLetters.length} most name-like words from {permutations.length} total sequences
+                    </p>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+                    {uniqueLetters.map((word, index) => (
+                      <div
+                        key={index}
+                        className="bg-gray-900 border-2 border-emerald-500 rounded-lg p-4 sm:p-6 flex flex-col items-center justify-center hover:border-emerald-400 hover:shadow-lg hover:shadow-emerald-500/50 transition-all cursor-pointer animate-fadeIn"
+                        style={{ animationDelay: `${index * 0.1}s` }}
+                        onClick={() => handleCopy(word, `unique-${index}`)}
+                      >
+                        <span className="text-2xl sm:text-3xl font-mono font-bold text-emerald-400 mb-2">
+                          {word}
+                        </span>
+                        <span className="text-emerald-600 font-mono text-xs">
+                          Rank #{index + 1}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Results Section */}
         {displayedPerms.length > 0 && (
@@ -361,6 +558,7 @@ export default function PermutationGenerator() {
             <p>{'>'} Max hash length: 8 characters</p>
             <p>{'>'} Tap sequence to extract to clipboard</p>
             <p>{'>'} Speed: {displayedPerms.length > 0 ? `${displayedPerms.length} sequences/sec` : 'Standby'}</p>
+            <p>{'>'} Meaningful words: Top 20 name-like patterns with vowels</p>
           </div>
         </div>
       </div>
@@ -400,6 +598,60 @@ export default function PermutationGenerator() {
             transform: translateY(100vh);
           }
         }
+        @keyframes swirl {
+          0% {
+            transform: translate(0, 0) rotate(0deg) scale(1);
+            opacity: 0;
+          }
+          10% {
+            opacity: 0.8;
+          }
+          50% {
+            transform: translate(calc(100px * cos(var(--angle, 0))), calc(100px * sin(var(--angle, 0)))) rotate(360deg) scale(1.5);
+            opacity: 0.6;
+          }
+          100% {
+            transform: translate(0, 0) rotate(720deg) scale(0.5);
+            opacity: 0;
+          }
+        }
+        @keyframes pop {
+          0% {
+            transform: scale(0) rotate(-180deg);
+            opacity: 0;
+          }
+          50% {
+            transform: scale(1.3) rotate(10deg);
+          }
+          100% {
+            transform: scale(1) rotate(0deg);
+            opacity: 1;
+          }
+        }
+        @keyframes pulse-glow {
+          0%, 100% {
+            filter: drop-shadow(0 0 20px rgba(16,185,129,0.8));
+          }
+          50% {
+            filter: drop-shadow(0 0 40px rgba(16,185,129,1));
+          }
+        }
+        @keyframes spin-slow {
+          from {
+            transform: rotate(0deg);
+          }
+          to {
+            transform: rotate(360deg);
+          }
+        }
+        @keyframes spin-reverse {
+          from {
+            transform: rotate(360deg);
+          }
+          to {
+            transform: rotate(0deg);
+          }
+        }
         .animate-fadeIn {
           animation: fadeIn 0.3s ease-out forwards;
         }
@@ -408,6 +660,21 @@ export default function PermutationGenerator() {
         }
         .animate-scan {
           animation: scan 3s linear infinite;
+        }
+        .animate-swirl {
+          animation: swirl linear infinite;
+        }
+        .animate-pop {
+          animation: pop 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards;
+        }
+        .animate-pulse-glow {
+          animation: pulse-glow 2s ease-in-out infinite;
+        }
+        .animate-spin-slow {
+          animation: spin-slow 4s linear infinite;
+        }
+        .animate-spin-reverse {
+          animation: spin-reverse 3s linear infinite;
         }
         .custom-scrollbar::-webkit-scrollbar {
           width: 6px;
